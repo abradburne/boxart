@@ -6,7 +6,23 @@ A native SwiftUI app for finding and exporting multi-system cover art. macOS 14+
 
 ## Run
 
-Download the Apple Silicon app from [GitHub Releases](https://github.com/abradburne/boxart/releases), open the DMG, and drag BoxArt into Applications. For a local build, open `build/BoxArt.app`. It initially scans `/Volumes/DS/Roms/NDS` (read-only). Use **Download & save all** to fetch and export missing covers across the scanned library in one run. The toolbar’s More menu also offers downloads for preview only and saving ready covers separately. Use **Choose folder** for another library. The sidebar navigates systems; the toolbar switches grid/list and opens artwork settings. Click a cover, then Shift-click another to select a range; Command-click adds or removes individual games. **Get for selected** downloads and saves only that selection. List view supports native multi-selection too. Right-click a cover or list row for Show in Finder, Show Info, Find Image, Search Images Online, Import Image, and Save Image. Actions apply to the clicked game; saved artwork remains protected, so finding/importing is available only for games without saved covers. Changing search, system or status filters removes hidden games from the selection; an in-progress batch keeps its original selection. ROM contents are never modified. With filename normalization off (the default), ROM filenames remain unchanged; existing PNG/JPEG covers are preserved. Local builds are ad-hoc signed by default. Official release signing uses XenoCode Developer ID and Apple notarization.
+Download the Apple Silicon app from [GitHub Releases](https://github.com/abradburne/boxart/releases), open the DMG, and drag BoxArt into Applications. For a local build, open `build/BoxArt.app`. It scans `/Volumes/DS/Roms` at first; use **Choose folder** for another library, or for one console's folder.
+
+### Choosing what to process
+
+The main button always says what it will do, and acts on the narrowest thing in view:
+
+- **One console**: click it in the sidebar. The button becomes **Get artwork for Game Boy**.
+- **Several consoles**: Command-click more in the sidebar. The button becomes **Get artwork for 3 consoles**.
+- **Just the games you selected**: click a cover, Shift-click for a range, Command-click to add or remove. The button becomes **Get artwork for 12 selected games**. List view uses native multi-selection. ⇧⌘A selects everything shown.
+- **A search or status filter** narrows it further: **Get artwork for 40 shown games**.
+- **Everything**: with nothing chosen, **Get artwork for all games**.
+
+The menu beside the button offers the wider scopes, **Preview without saving**, and saving previews already found. Right-click a console for **Get Artwork for …** without changing the view. Right-click a game, or a selection, for the same actions plus Import Image, Search Images Online, Show in Finder and **Move Artwork to Trash**.
+
+Each cover is saved as soon as it is found, six games at a time, so stopping or pulling the card keeps everything finished so far. Games that already have artwork are never touched. Sidebar counts show saved / total per console.
+
+ROM contents are never modified. With filename renaming off (the default), ROM filenames stay as they are. Changing search, console or status filters removes hidden games from the selection; a batch in progress keeps the games it started with. Local builds are ad-hoc signed by default. Official release signing uses XenoCode Developer ID and Apple notarization.
 
 ## Profiles
 
@@ -14,9 +30,41 @@ Download the Apple Silicon app from [GitHub Releases](https://github.com/abradbu
 - **TWiLight Menu++**: choose the SD root as the destination. Exports `_nds/TWiLightMenu/boxart/<full ROM filename>.png`, fitted within 128 × 115 pixels. Intended for normal box-art mode; the Cached mode's separate 44 KiB limit is not enforced.
 - **Custom folder**: choose the output folder, PNG/JPEG and maximum edge. Uses ROM stems. This supports other frontends with compatible layouts, but does not generate their databases, playlists or gamelist.xml files.
 
-## RetroArch and other systems
+## Cart labels and carts
 
-Choose `/Volumes/DS/Roms` to scan across system folders. Supports DS, GBA, GB/GBC, NES/FDS, SNES, N64, PlayStation, PSP, Mega Drive, Master System, Game Gear, Dreamcast, Saturn, Sega CD/32X, PC Engine, Atari 2600/Lynx, Neo Geo Pocket/Color and WonderSwan/Color. Disc images and ZIP/7z archives are identified by their enclosing system folder (e.g. `PS`, `GBA`, `SFC`); archives are matched by filename, not unpacked. BIN files are skipped in folders with CUE/GDI descriptors to avoid treating audio tracks as games.
+The **Box art / Cart label / Cart** selector at the top of the main window chooses what is collected: **Box art** (the default), **Cart label** or **Cart**. Labels cover Nintendo DS, Game Boy, Game Boy Color and Game Boy Advance; carts are Nintendo DS only. Both use the RG DS Plus / NNDDSS layout with their own folders beside the ROMs, so all three can sit side by side:
+
+```
+Roms/NDS/Mario Kart DS (USA).nds
+Roms/NDS/Imgs/Mario Kart DS (USA).png      box front
+Roms/NDS/Labels/Mario Kart DS (USA).png    cart label
+Roms/NDS/Carts/Mario Kart DS (USA).png     finished cart (optional)
+```
+
+- **Cart label**: the sticker alone. DS labels are 272 × 296 at source, transparent outside their outline; Game Boy family labels are scans of varying size. For frontends that draw their own cart shell, such as dslot.
+- **Cart**: the whole cart front including its shell, 336 × 360 at source, transparent outside the cart.
+
+Both are always PNG and keep their transparency (box art is flattened onto white). They are never upscaled, so the maximum edge only matters below 512 px. Each type tracks its own saved state: a game with box art still shows as missing until its label is saved. Switching type discards unsaved previews of the previous type. **Import image** works for games the provider lacks.
+
+The Custom folder profile also accepts labels and carts, written as `<ROM stem>.png`; choose a separate destination per type, since a box-art file of the same name counts as already saved. RetroArch and TWiLight Menu++ have no place for cart artwork and report an error instead of writing box-art paths. Filename normalization does not run while collecting labels or carts.
+
+## Systems
+
+Choose `/Volumes/DS/Roms` to scan every console folder. A game's console comes from its folder name (`GBA`, `SFC`, `MD`, `SEGACD`, `GW`, …, as used by Anbernic stock firmware, dslot, muOS, Knulli and EmulationStation) or from an extension that only one console uses.
+
+| | |
+|---|---|
+| Nintendo | DS, Game Boy, Color, Advance, NES, Famicom Disk System, SNES, N64, Virtual Boy, Pokémon Mini, Game & Watch |
+| Sony | PlayStation, PSP |
+| Sega | Mega Drive, Master System, Game Gear, SG-1000, Mega-CD, 32X, Saturn, Dreamcast, Naomi, Atomiswave |
+| NEC, SNK, Bandai | PC Engine, PC Engine CD, SuperGrafx, Neo Geo, Neo Geo CD, Neo Geo Pocket / Color, WonderSwan / Color |
+| Atari | 2600, 5200, 7800, 8-bit, ST, Lynx, Jaguar |
+| Arcade | FinalBurn Neo (also `CPS1`–`3`, `PGM`, `ARCADE`), MAME |
+| Computers and others | Amiga, C64, VIC-20, MSX / MSX2, DOS, ScummVM, ZX Spectrum, Amstrad CPC, ColecoVision, Intellivision, Vectrex, Supervision |
+
+Archives and disc images (ZIP, 7z, CHD, CUE, ISO, CSO, PBP, M3U) take the console of their folder and are matched by filename, not unpacked. Not scanned: `Imgs`, `Labels`, `Carts`, `artwork`, `saves`, `bios`, `PORTS`, `APPS` and similar support folders; BIN and IMG tracks beside a CUE, GDI or CCD sheet; discs listed in an `.m3u` (the playlist stands for the game). A `.gb` file in a `GBC` folder stays with the Color games and finds its artwork in the Game Boy set.
+
+## RetroArch
 
 For **RetroArch**, choose the directory configured as **Settings → Directory → Thumbnails** on your handheld. Export uses `<system>/Named_Boxarts/<label>.png`. Import JSON `.lpl` playlists to get exact display labels and database names. Android/Linux paths are matched to local ROMs by unique basename; ambiguous names are skipped. Without a playlist, the app uses standard Libretro system names and ROM stems, which only works if your playlist labels match. Import playlists again after rescanning. Legacy six-line playlists are not supported.
 
@@ -24,9 +72,21 @@ Other frontend layouts can use Anbernic `Imgs` or Custom folder export. Emulator
 
 ## Matching
 
-Reads only the four-byte game code at offset 0x0C from `.nds` and `.dsi` headers. Tries the appropriate Libretro system’s box art with exact filename matching and Libretro character substitutions first. Falls back to GameTDB medium front covers using the exact DS game code, trying the ROM region first, then small covers. No fuzzy matching that might confuse sequels. Translations keep their underlying game code. Homebrew and unrecognized titles can use **Import image**. Non-DS and archived games use Libretro filename/playlist-label matching.
+Box art is looked up from the most certain source to the least, and the source is shown for every game (hover a cover, or open the inspector):
 
-Downloads remain in memory until saved. Stop preserves completed downloads for the current session. Network failures appear per game and can be retried with Find missing artwork. Artwork is written through a temporary sibling file and moved into place; existing artwork is never replaced. Flat destinations are checked for duplicate names before the batch writes. Filesystem failures appear per game. Reconnect/rescan after disconnecting a card. Close and reopen discards unsaved previews.
+1. **Exact filename** in the console's Libretro thumbnail set, with Libretro's character substitutions.
+2. **DS game code** at GameTDB, read from the four bytes at offset 0x0C of `.nds` and `.dsi` headers: medium front covers in the ROM's region, then small covers. Translations keep their game code.
+3. **Same title** in Libretro's name list for the console, then for consoles that share its library (Game Boy ↔ Color, Neo Geo Pocket ↔ Color, WonderSwan ↔ Color, Master System ↔ SG-1000, arcade sets). Region, revision, language and dump tags are set aside, as are translation markers, scene tags such as `(U)` or `[EUR]`, `, The` word order, and trailing version or release-group text. Among several releases the ROM's own region wins, then USA, World, Europe, Japan. Prototypes and demos only match prototype and demo ROMs.
+
+The title itself must be identical once punctuation and case are ignored, so a sequel or a different edition is never substituted: `Mega Man 4` finds nothing rather than `Mega Man 3`. On a 1,117-game card, 890 games matched by exact filename and 115 more by title; what is left is homebrew, hacks and misspelt names. If a match is wrong, **Move Artwork to Trash** and import your own.
+
+Name lists are fetched once per console from GitHub and cached for two weeks. GitHub allows 60 such requests an hour; if the limit is reached, only exact filenames are tried and the game says so.
+
+Arcade ROMs named by short code (`mslug.zip`) get their title from the FinalBurn Neo set list in the Libretro database. Game & Watch sets (`gnw_dkong`) are listed but have no title source yet, so they need **Import image**.
+
+Cart labels and carts come only from GameTDB by exact DS game code, trying the ROM region, then US, EN and JA; there is no filename fallback, and GameTDB holds them for far fewer games than covers (about a third of a 40-game sample). Game Boy, Game Boy Color and Game Boy Advance labels come from the slot CFW art set by the CRC32 of the whole ROM file, as No-Intro lists it, so hacks, translations and bad dumps find nothing. Zipped ROMs use the checksum the ZIP already stores, without unpacking, as long as the archive holds exactly one `.gb`, `.gbc` or `.gba` file; 7z archives are skipped. Other consoles have no label or cart source.
+
+Each cover is written through a temporary sibling file and moved into place as soon as it is found; existing artwork is never replaced. **Preview without saving** keeps covers in memory instead, under the **Unsaved** filter, until you save them or close the app. Network and filesystem failures appear per game and are retried the next time that game is processed. In a flat destination, two ROMs that would write the same filename are both skipped and the rest of the batch continues. Reconnect and rescan after disconnecting a card.
 
 ## Build and test
 
@@ -38,11 +98,12 @@ open build/BoxArt.app
 
 For Developer ID signing, set `SIGNING_IDENTITY` when running the build script; notarization and stapling are separate release steps.
 
-Open `Package.swift` in Xcode to develop. The package separates the scanner, image conversion, providers and export rules from the SwiftUI application. Tests exercise hidden-file filtering, header reads, exact naming, dimensions, preservation of ROMs and existing images, invalid images and disconnected-card handling.
+Open `Package.swift` in Xcode to develop. The package separates the scanner, image conversion, providers and export rules from the SwiftUI application. Tests exercise console detection, support-folder and multi-disc filtering, title matching, header reads, exact naming, dimensions, preservation of ROMs and existing images, invalid images, disconnected-card handling, per-console and per-selection scopes, and cart-label folders and transparency. `BOXART_LIVE_TEST=1 swift test` adds the network tests against the artwork providers.
 
 ## References and credits
 
-- [GameTDB](https://www.gametdb.com/) — Nintendo DS artwork, exact game-code lookup.
+- [GameTDB](https://www.gametdb.com/) — Nintendo DS covers, cart labels and carts, exact game-code lookup.
+- [slot CFW art set](https://github.com/BrandonKowalski/slot-cart-studio) — Game Boy, Game Boy Color and Game Boy Advance cart label scans by ROM checksum, from [ScreenScraper](https://www.screenscraper.fr/) (CC BY-NC-SA 4.0).
 - [Libretro thumbnails](https://github.com/libretro-thumbnails/libretro-thumbnails) — fallback artwork and naming conventions.
 - [TWiLight Menu++ box-art documentation](https://wiki.ds-homebrew.com/twilightmenu/how-to-get-box-art) — PNG naming and size limits.
 - [RG DS Plus owners reporting the Imgs convention](https://www.reddit.com/r/ANBERNIC/comments/1wnvhxj/rg_ds_plus_received_and_its_great/) — community evidence, not an official NNDDSS specification.
@@ -63,8 +124,8 @@ Artwork quality: Libretro exact-name covers are now tried first, followed by Gam
 
 ## Filename normalization and installer
 
-Settings → **Normalize filenames when processing** is off by default. When enabled, downloaded artwork with a unique normalized title/region match allows the ROM to be renamed to the artwork database name, preserving its extension. Scene tags and underscores are removed for matching; no fuzzy sequel guesses are made. Already-covered games, collisions, RetroArch/imported playlist mappings, and folders containing CUE/GDI/M3U files are excluded from renaming. A hidden `.boxart-renames.jsonl` log beside the ROMs records intended old/new names; an unsuccessful move can leave a log entry without a renamed file. External playlists elsewhere are not discovered; leave this option off for libraries referenced by them.
+Settings → **Rename ROMs to their Libretro names** is off by default. When enabled, downloaded artwork with a unique normalized title/region match allows the ROM to be renamed to the artwork database name, preserving its extension. Scene tags and underscores are removed for matching; no fuzzy sequel guesses are made. Already-covered games, collisions, RetroArch/imported playlist mappings, and folders containing CUE/GDI/M3U files are excluded from renaming. A hidden `.boxart-renames.jsonl` log beside the ROMs records intended old/new names; an unsuccessful move can leave a log entry without a renamed file. External playlists elsewhere are not discovered; leave this option off for libraries referenced by them.
 
-The **Unsaved** filter contains downloaded/imported previews held in memory, with a button to save the displayed covers. Filter counts follow the selected system and search.
+The **Unsaved** filter contains downloaded/imported previews held in memory, with a button to save the displayed covers. Filter counts follow the chosen consoles and search.
 
 Build the drag-to-Applications DMG after signing and stapling the app: `python3 -m venv build/dmg-tools`, `build/dmg-tools/bin/pip install dmgbuild==1.6.7 pillow==12.3.0`, then `build/dmg-tools/bin/dmgbuild -s scripts/dmg-settings.py BoxArt build/BoxArt.dmg`. The background PNG is committed; `scripts/dmg-background.py` regenerates it. Sign, notarize and staple the resulting DMG before distribution.

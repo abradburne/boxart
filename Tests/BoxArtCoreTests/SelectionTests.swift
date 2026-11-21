@@ -38,14 +38,14 @@ final class SelectionTests: XCTestCase {
         let m = LibraryModel()
         for i in 0..<3 {
             let url = root.appendingPathComponent("Game \(i).nds"); try Data(repeating: 0, count: 512).write(to: url)
-            var game = Game(url: url, code: nil); game.artwork = bitmap.representation(using: .png, properties: [:]); game.status = "Ready"; m.games.append(game)
+            var game = Game(url: url, code: nil); game.artwork = bitmap.representation(using: .png, properties: [:]); game.status = .ready; m.games.append(game)
         }
         m.select(m.games[0].id); m.select(m.games[1].id, shift: true); m.getForSelected()
         m.select(m.games[2].id)
         let deadline = Date().addingTimeInterval(5)
         while m.busy && Date() < deadline { try await Task.sleep(nanoseconds: 10_000_000) }
         XCTAssertFalse(m.busy); XCTAssertEqual(m.saved, 2)
-        XCTAssertEqual(m.games[2].status, "Ready")
+        XCTAssertEqual(m.games[2].status, .ready)
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Imgs/Game 2.png").path))
     }
 }
