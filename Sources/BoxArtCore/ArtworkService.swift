@@ -14,14 +14,30 @@ public actor ArtworkService {
         cache = cacheDirectory ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("BoxArt", isDirectory: true)
     }
 
-    private func fetch(_ url: URL) async throws -> Data? {
+    private func fetch(_ url: URL, hops: Int = 3) async throws -> Data? {
         try Task.checkCancellation()
         let (data, response) = try await session.data(from: url)
         guard let response = response as? HTTPURLResponse else { throw ArtError.message("Invalid server response.") }
         if response.statusCode == 404 { return nil }
         guard response.statusCode == 200 else { throw ArtError.message("Artwork server returned HTTP \(response.statusCode). Try again later.") }
-        guard data.count < 20_000_000, CGImageSourceCreateWithData(data as CFData, nil) != nil else { return nil }
-        return data
+        if Self.isImage(data) { return data }
+        // Libretro keeps one file per cover and links the other revisions and translations to it.
+        guard hops > 0, let target = Self.linkTarget(data), let next = URL(string: target, relativeTo: url) else { return nil }
+        return try await fetch(next.absoluteURL, hops: hops - 1)
+    }
+
+    /// True only for data that decodes to at least one image. A non-nil image source alone proves nothing.
+    static func isImage(_ data: Data) -> Bool {
+        guard data.count < 20_000_000, let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
+        return CGImageSourceGetCount(source) > 0 && CGImageSourceGetStatus(source) == .statusComplete
+    }
+
+    /// A git symbolic link served as a file: its whole content is the relative path of the real image.
+    static func linkTarget(_ data: Data) -> String? {
+        guard data.count < 1024, let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty, !text.contains("\n"), !text.hasPrefix("/"), !text.contains("://"),
+              ["png", "jpg", "jpeg"].contains((text as NSString).pathExtension.lowercased()) else { return nil }
+        return text.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
     }
 
     // MARK: Cached lists

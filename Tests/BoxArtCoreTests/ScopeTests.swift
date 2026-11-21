@@ -96,7 +96,7 @@ final class ScopeTests: XCTestCase {
             "GBC/Tetris Blast (USA, Europe) (SGB Enhanced).gb", "GBC/Pokemon - Gold Version (USA, Europe).zip",
             "MD/Ghostbusters (USA, Europe).zip", "GG/Sylvan Tale (Japan) (Translated).zip", "LYNX/Qix (USA, Europe).lnx",
             "SFC/Donkey Kong Country (U) (V1.2) [!].smc", "PS/tonyhawksproskater2.chd", "PS/Parasite Eve (USA).m3u",
-            "ARCADE/mslug.zip", "GW/gnw_dkong.zip", "GW/gnw_ball.zip", "GBA/Mother 3 v1.2.zip",
+            "ARCADE/mslug.zip", "GB/Dr. Mario (World) (Rev 1).zip", "GW/gnw_dkong.zip", "GW/gnw_ball.zip", "GBA/Mother 3 v1.2.zip",
         ]
         let m = try model(files)
         for i in m.games.indices { m.games[i].artwork = nil; m.games[i].status = .missing }

@@ -2,7 +2,7 @@
 
 A native SwiftUI app for finding and exporting multi-system cover art. macOS 14+, no third-party dependencies or API keys. The supplied build runs on Apple Silicon.
 
-![BoxArt for macOS showing a Nintendo DS cover grid, system sidebar, and artwork filters](docs/images/boxart-library.png)
+![BoxArt for macOS showing a Nintendo DS cover grid, a sidebar of eleven consoles with saved counts, status filters, and the Get artwork for Nintendo DS button](docs/images/boxart-library.png)
 
 ## Run
 

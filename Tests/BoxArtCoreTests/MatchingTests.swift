@@ -164,6 +164,15 @@ final class ChecksumTests: XCTestCase {
         XCTAssertNil(try Library.romChecksum(try write("Game.chd", body)))
         XCTAssertNil(try Library.romChecksum(try write("Big.gba", body), limit: 100))
     }
+    func testLinkedCoversAreFollowedNotSaved() {
+        let link = Data("Dr. Mario (World).png".utf8)
+        XCTAssertFalse(ArtworkService.isImage(link))
+        XCTAssertEqual(ArtworkService.linkTarget(link), "Dr.%20Mario%20(World).png")
+        XCTAssertEqual(ArtworkService.linkTarget(Data("../Named_Snaps/A & B.png\n".utf8)), "../Named_Snaps/A%20&%20B.png")
+        XCTAssertNil(ArtworkService.linkTarget(Data("https://example.com/x.png".utf8)))
+        XCTAssertNil(ArtworkService.linkTarget(Data("<html>Not Found</html>".utf8)))
+        XCTAssertNil(ArtworkService.linkTarget(Data("/etc/x.png".utf8)))
+    }
     func testGameAndWatchSetsShowTheirTitles() {
         let game = Game(url: URL(fileURLWithPath: "/Roms/GW/gnw_dkjr.zip"), code: nil)
         XCTAssertEqual(game.system, .gameAndWatch)
