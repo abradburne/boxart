@@ -152,6 +152,25 @@ public enum ArtworkMatcher {
     }
 }
 
+/// No-Intro lists every known cartridge dump with its checksum:
+/// `game ( name "Final Fantasy VI Advance (USA)" … rom ( name "….gba" size 8388608 crc 1A2B3C4D …`.
+public enum ChecksumTitles {
+    public static func parse(_ dat: String) -> [String: String] {
+        var titles: [String: String] = [:]
+        var current: String?
+        for line in dat.split(whereSeparator: \.isNewline) {
+            let text = line.trimmingCharacters(in: .whitespaces)
+            if text.hasPrefix("name \""), text.hasSuffix("\"") {
+                current = String(text.dropFirst(6).dropLast())
+            } else if text.hasPrefix("rom ("), let title = current, let range = text.range(of: " crc ") {
+                let crc = text[range.upperBound...].prefix { $0 != " " }.uppercased()
+                if crc.count == 8, titles[crc] == nil { titles[crc] = title }
+            }
+        }
+        return titles
+    }
+}
+
 /// Arcade ROM sets are named by short codes. This reads the title for each from a ClrMamePro DAT:
 /// `game ( name "Metal Slug - Super Vehicle-001" … rom ( name mslug.zip …`.
 public enum ArcadeTitles {

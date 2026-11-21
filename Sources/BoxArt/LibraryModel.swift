@@ -255,7 +255,7 @@ enum Scope {
         let targets = games.filter { $0.savedURL == nil && (ids?.contains($0.id) ?? true) && (find ? (save || $0.artwork == nil) : $0.artwork != nil) }
         guard !targets.isEmpty else { message = ids == nil ? "Every game already has artwork." : "Those games already have artwork."; return }
         let configuration = settings
-        var blocked = Set<String>()
+        var blocked = Set<String>(), twins = Set<String>()
         if save {
             // A missing destination affects every game alike, so say so once before starting.
             var outputs: [String: [String]] = [:]
@@ -266,10 +266,14 @@ enum Scope {
             }
             if failures == targets.count { self.error = firstFailure; return }
             // Two ROMs that would write the same file are skipped; the rest of the batch carries on.
-            for (_, sharing) in outputs where sharing.count > 1 { blocked.formUnion(sharing) }
+            for (_, sharing) in outputs where sharing.count > 1 {
+                let folders = Set(sharing.map { ($0 as NSString).deletingLastPathComponent })
+                // The same game kept in two formats side by side (Game.zip and Game.7z) shares one cover: the first fetches it.
+                if folders.count == 1 { twins.formUnion(sharing.dropFirst()) } else { blocked.formUnion(sharing) }
+            }
         }
         busy = true; progress = 0
-        let queue = targets.map(\.id)
+        let queue = targets.map(\.id).filter { !twins.contains($0) }
         let service = service
         let collisions = blocked
         job = Task {
@@ -288,6 +292,10 @@ enum Scope {
                     done += 1; progress = Double(done) / Double(queue.count)
                     enqueue()
                 }
+            }
+            for index in games.indices where twins.contains(games[index].id) {
+                guard let url = try? Library.existing(for: games[index].url, settings: configuration) else { continue }
+                games[index].savedURL = url; games[index].status = .saved; games[index].artwork = nil; games[index].source = "Shares the cover of the same game beside it"
             }
             summarize(queue: queue, done: done, saved: save, stopped: Task.isCancelled)
             busy = false

@@ -114,7 +114,10 @@ public struct Game: Identifiable, Sendable {
     public init(url: URL, code: String?, system: GameSystem? = nil) {
         self.url = url; self.code = code
         self.system = system ?? GameSystem.infer(url) ?? .nds
-        self.title = Self.clean(url.deletingPathExtension().lastPathComponent)
+        let stem = url.deletingPathExtension().lastPathComponent
+        // Game & Watch sets carry MAME short names; show the game's real title.
+        if self.system == .gameAndWatch, let entry = GameAndWatch.entry(for: stem) { self.title = Self.clean(entry.title) }
+        else { self.title = Self.clean(stem) }
     }
     public static func clean(_ name: String) -> String {
         let title = ArtworkMatcher.stripROMExtension(name)
@@ -133,9 +136,10 @@ public enum Library {
               bytes.allSatisfy({ (65...90).contains($0) || (48...57).contains($0) }) else { return nil }
         return String(data: bytes, encoding: .ascii)
     }
-    /// CRC32 of the whole file, as No-Intro lists Game Boy and Game Boy Advance dumps.
-    public static func crc32(_ url: URL) throws -> String {
+    /// CRC32 of the whole file, as No-Intro lists Game Boy and Game Boy Advance dumps. `skipping` leaves out a leading header.
+    public static func crc32(_ url: URL, skipping header: UInt64 = 0) throws -> String {
         let file = try FileHandle(forReadingFrom: url); defer { try? file.close() }
+        try file.seek(toOffset: header)
         var crc = zlib.crc32(0, nil, 0)
         while let chunk = try file.read(upToCount: 1 << 20), !chunk.isEmpty {
             crc = chunk.withUnsafeBytes { zlib.crc32(crc, $0.bindMemory(to: Bytef.self).baseAddress, uInt($0.count)) }
@@ -150,7 +154,26 @@ public enum Library {
         default: return nil
         }
     }
-    static func zipEntryCRC(_ url: URL, extensions: Set<String>) throws -> String? {
+    /// The checksum No-Intro would list for a cartridge dump, or nil when it cannot be had cheaply.
+    /// Zipped ROMs use the CRC the archive already stores. Loose files are read whole, up to `limit` bytes,
+    /// without the emulator header that iNES, Lynx, Atari 7800 and SNES copier dumps carry in front.
+    public static func romChecksum(_ url: URL, limit: UInt64 = 64 << 20) throws -> String? {
+        let ext = url.pathExtension.lowercased()
+        if ext == "zip" { return try zipEntryCRC(url, extensions: nil) }
+        guard !GameSystem.containers.contains(ext) else { return nil }
+        let size = (try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? 0
+        guard size > 0, size <= limit else { return nil }
+        let file = try FileHandle(forReadingFrom: url); defer { try? file.close() }
+        let magic = [UInt8](try file.read(upToCount: 10) ?? Data())
+        var header: UInt64 = 0
+        if magic.starts(with: [0x4E, 0x45, 0x53, 0x1A]) { header = 16 }                       // iNES
+        else if magic.starts(with: Array("LYNX".utf8)) { header = 64 }
+        else if magic.count >= 10, Array(magic[1..<10]) == Array("ATARI7800".utf8) { header = 128 }
+        else if ["smc", "sfc"].contains(ext), size % 1024 == 512 { header = 512 }             // copier header
+        return try crc32(url, skipping: header)
+    }
+    /// The stored CRC32 of the one ROM in a ZIP; `extensions` nil accepts any single file.
+    static func zipEntryCRC(_ url: URL, extensions: Set<String>?) throws -> String? {
         let file = try FileHandle(forReadingFrom: url); defer { try? file.close() }
         let size = try file.seekToEnd()
         // The end-of-central-directory record is 22 bytes plus a comment of up to 65,535.
@@ -173,7 +196,7 @@ public enum Library {
             guard offset + 46 + nameLength <= directory.count else { return nil }
             let name = String(decoding: directory[(offset + 46)..<(offset + 46 + nameLength)], as: UTF8.self)
             let leaf = (name as NSString).lastPathComponent
-            if !name.hasPrefix("__MACOSX/"), !leaf.hasPrefix("."), extensions.contains((leaf as NSString).pathExtension.lowercased()) {
+            if !name.hasPrefix("__MACOSX/"), !leaf.hasPrefix("."), !name.hasSuffix("/"), extensions?.contains((leaf as NSString).pathExtension.lowercased()) ?? true {
                 crcs.append(String(format: "%08X", u32(directory, offset + 16)))
             }
             offset = next

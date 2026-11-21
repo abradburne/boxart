@@ -72,6 +72,13 @@ final class ScopeTests: XCTestCase {
         m.getArtwork(ids: [m.games[0].id]); try await finish(m)
         XCTAssertTrue(exists("out/Same.png")); XCTAssertEqual(m.games[0].status, .saved); XCTAssertEqual(m.saved, 2)
     }
+    @MainActor func testSameGameInTwoFormatsSharesOneCover() async throws {
+        let m = try model(["GW/gnw_dkong.zip", "GW/gnw_dkong.7z", "GW/gnw_egg.zip"])
+        m.run(.library); try await finish(m)
+        XCTAssertEqual(m.saved, 3)
+        XCTAssertEqual(m.games.filter { $0.status == .saved }.count, 3)
+        XCTAssertTrue(exists("GW/Imgs/gnw_dkong.png")); XCTAssertTrue(exists("GW/Imgs/gnw_egg.png"))
+    }
     @MainActor func testSavedPreviewLeavesMemoryAndTrashRestoresMissing() async throws {
         let m = try model(["GB/A.gb"])
         m.run(.library); try await finish(m)
@@ -89,7 +96,7 @@ final class ScopeTests: XCTestCase {
             "GBC/Tetris Blast (USA, Europe) (SGB Enhanced).gb", "GBC/Pokemon - Gold Version (USA, Europe).zip",
             "MD/Ghostbusters (USA, Europe).zip", "GG/Sylvan Tale (Japan) (Translated).zip", "LYNX/Qix (USA, Europe).lnx",
             "SFC/Donkey Kong Country (U) (V1.2) [!].smc", "PS/tonyhawksproskater2.chd", "PS/Parasite Eve (USA).m3u",
-            "ARCADE/mslug.zip", "GW/gnw_dkong.zip", "GBA/Mother 3 v1.2.zip",
+            "ARCADE/mslug.zip", "GW/gnw_dkong.zip", "GW/gnw_ball.zip", "GBA/Mother 3 v1.2.zip",
         ]
         let m = try model(files)
         for i in m.games.indices { m.games[i].artwork = nil; m.games[i].status = .missing }
@@ -100,6 +107,6 @@ final class ScopeTests: XCTestCase {
         print("LIVE \(m.message)")
         XCTAssertFalse(m.busy)
         let missed = Set(m.games.filter { $0.savedURL == nil }.map { $0.url.lastPathComponent })
-        XCTAssertEqual(missed, ["Deadeus.zip", "gnw_dkong.zip"])
+        XCTAssertEqual(missed, ["Deadeus.zip", "gnw_ball.zip"])
     }
 }

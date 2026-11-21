@@ -134,3 +134,42 @@ final class DetectionTests: XCTestCase {
         XCTAssertEqual(games.first { $0.url.lastPathComponent == "gnw_dkong.zip" }?.system, .gameAndWatch)
     }
 }
+
+final class ChecksumTests: XCTestCase {
+    func testNoIntroListMapsChecksumsToNames() {
+        let dat = """
+        clrmamepro (
+        \tname "Nintendo - Game Boy Advance"
+        )
+        game (
+        \tname "Final Fantasy VI Advance (USA)"
+        \tregion "USA"
+        \trom ( name "Final Fantasy VI Advance (USA).gba" size 8388608 crc 1a2b3c4d md5 00 sha1 00 serial "BZ6E" )
+        )
+        """
+        XCTAssertEqual(ChecksumTitles.parse(dat), ["1A2B3C4D": "Final Fantasy VI Advance (USA)"])
+    }
+    func testChecksumSkipsEmulatorHeadersAndContainers() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let body = Data((0..<2048).map { UInt8($0 % 251) })
+        func write(_ name: String, _ data: Data) throws -> URL { let url = root.appendingPathComponent(name); try data.write(to: url); return url }
+        let plain = try Library.romChecksum(try write("Game.gb", body))
+        XCTAssertNotNil(plain)
+        XCTAssertEqual(try Library.romChecksum(try write("Game.nes", Data([0x4E, 0x45, 0x53, 0x1A] + [UInt8](repeating: 0, count: 12)) + body)), plain)
+        XCTAssertEqual(try Library.romChecksum(try write("Game.lnx", Data("LYNX".utf8) + Data(count: 60) + body)), plain)
+        XCTAssertEqual(try Library.romChecksum(try write("Game.smc", Data(count: 512) + body)), plain)
+        XCTAssertEqual(try Library.romChecksum(try write("Game.sfc", body)), plain)
+        XCTAssertNil(try Library.romChecksum(try write("Game.chd", body)))
+        XCTAssertNil(try Library.romChecksum(try write("Big.gba", body), limit: 100))
+    }
+    func testGameAndWatchSetsShowTheirTitles() {
+        let game = Game(url: URL(fileURLWithPath: "/Roms/GW/gnw_dkjr.zip"), code: nil)
+        XCTAssertEqual(game.system, .gameAndWatch)
+        XCTAssertEqual(game.title, "Donkey Kong Jr.")
+        XCTAssertEqual(GameAndWatch.entry(for: "GNW_DKONG")?.artwork, "Donkey Kong (Nintendo, Multi Screen)")
+        XCTAssertNil(GameAndWatch.entry(for: "gnw_ball")?.artwork)
+        XCTAssertEqual(Game(url: URL(fileURLWithPath: "/Roms/GW/unknown.zip"), code: nil).title, "unknown")
+    }
+}

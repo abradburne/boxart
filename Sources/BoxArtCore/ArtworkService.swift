@@ -100,6 +100,22 @@ public actor ArtworkService {
         return arcadeTitles?[shortName.lowercased()]
     }
 
+    private var checksumTitles: [GameSystem: [String: String]] = [:]
+    /// The No-Intro name of a dump, by checksum. A system without a list simply has none.
+    private func checksumTitle(_ crc: String, system: GameSystem) async -> String? {
+        if checksumTitles[system] == nil {
+            let file = system.rawValue.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? system.rawValue
+            let data = await cached("no-intro-\(system.repository).dat", maxAge: 30 * 86_400) {
+                let url = URL(string: "https://raw.githubusercontent.com/libretro/libretro-database/master/metadat/no-intro/\(file).dat")!
+                let (data, response) = try await self.session.data(from: url)
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw ArtError.message("No checksum list for this system.") }
+                return data
+            }
+            checksumTitles[system] = data.map { ChecksumTitles.parse(String(decoding: $0, as: UTF8.self)) } ?? [:]
+        }
+        return checksumTitles[system]?[crc]
+    }
+
     // MARK: Filename normalization
 
     /// The Libretro name a ROM could be renamed to: its own name if that is already one, or the single unambiguous match.
@@ -167,6 +183,7 @@ public actor ArtworkService {
         var lastError: Error?
         var stem = game.lookupName ?? ArtworkMatcher.stripROMExtension(game.url.deletingPathExtension().lastPathComponent)
         if game.lookupName == nil, game.system.usesShortNames, let title = await arcadeTitle(for: stem) { stem = title }
+        if game.lookupName == nil, game.system == .gameAndWatch, let cover = GameAndWatch.entry(for: stem)?.artwork { stem = cover }
         let safe = PlaylistIdentity.safeName(stem)
 
         // With the name list already in hand, a request for a name it lacks is known to fail.
@@ -182,6 +199,20 @@ public actor ArtworkService {
                     do { if let data = try await fetch(url) { return (data, "GameTDB · \(code) · \(region) · \(cover)") } }
                     catch { try Task.checkCancellation(); lastError = error; break }
                 }
+            }
+        }
+        // A misnamed but unmodified dump is identified by its checksum, which then names its artwork.
+        if game.lookupName == nil, !game.system.usesShortNames, game.system != .gameAndWatch {
+            let rom = game.url
+            let crc = try? await Task.detached(operation: { try Library.romChecksum(rom) }).value
+            for system in [game.system] + game.system.siblings {
+                guard let crc, let name = await checksumTitle(crc, system: system) else { continue }
+                do {
+                    if let data = try await boxart(PlaylistIdentity.safeName(name), system: system) { return (data, "Libretro · ROM checksum \(crc) · \(name)") }
+                } catch { try Task.checkCancellation(); lastError = error }
+                // No cover under that exact release: look for the same title instead.
+                stem = name
+                break
             }
         }
         for system in [game.system] + game.system.siblings {
