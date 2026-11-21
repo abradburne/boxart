@@ -357,10 +357,15 @@ enum Scope {
                 games[index].source = await service.indexProblem(for: system) ?? "No artwork under this name. Import an image, or search online from the right-click menu."
                 return id
             }
-            if let canonical { newID = try rename(index, to: canonical) }
+            // A ROM that cannot be renamed (its Libretro name is taken by another file, say) still gets its cover.
+            var note = ""
+            if let canonical {
+                do { newID = try rename(index, to: canonical) }
+                catch { try Task.checkCancellation(); note = " · Not renamed: \(error.localizedDescription)" }
+            }
             try Task.checkCancellation()
             guard let index = self.index(of: newID) else { return newID }
-            games[index].artwork = data; games[index].source = source; games[index].status = .ready
+            games[index].artwork = data; games[index].source = source + note; games[index].status = .ready
         } catch {
             guard let index = self.index(of: newID) else { return newID }
             if Task.isCancelled { games[index].status = .missing; return newID }
